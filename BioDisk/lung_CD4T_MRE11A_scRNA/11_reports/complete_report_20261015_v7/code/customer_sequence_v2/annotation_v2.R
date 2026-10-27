@@ -1,0 +1,9 @@
+suppressPackageStartupMessages({library(AnnotationDbi);library(org.Mm.eg.db);library(GO.db)})
+args<-commandArgs(trailingOnly=TRUE);out<-args[1]
+x<-AnnotationDbi::select(org.Mm.eg.db,keys='GO:0006914',keytype='GOALL',columns=c('SYMBOL','ENSEMBL','EVIDENCEALL','ONTOLOGYALL'))
+x<-unique(x[!is.na(x$SYMBOL),])
+write.table(x,file.path(out,'inputs','GO0006914_autophagy_annotations.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+write.table(AnnotationDbi::metadata(org.Mm.eg.db),file.path(out,'provenance','orgMm_metadata.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+write.table(AnnotationDbi::metadata(GO.db),file.path(out,'provenance','GO_metadata.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+writeLines(c(paste('GO:0006914',Term(GOTERM[['GO:0006914']])),paste('org.Mm.eg.db',packageVersion('org.Mm.eg.db')),paste('GO.db',packageVersion('GO.db')),capture.output(sessionInfo())),file.path(out,'provenance','annotation_session.txt'),useBytes=TRUE)
+cat('AUTOPHAGY_SYMBOLS',length(unique(x$SYMBOL)),'\n')

@@ -1,0 +1,7 @@
+from pathlib import Path
+import json,hashlib,sys,subprocess,numpy,pandas,scipy
+P=Path('/mnt/BioDisk/wangmingyuan/lung_CD4T_MRE11A_scRNA');O=P/'11_reports/append_analysis_20261017_v18';B=P/'11_reports/three_cohort_four_axis_20261017_v16';S=P/'02_analysis/scenic1_20260929_103513_xRoEnr/Mouse/All';files=[S/'score.loom',S/'seed17/regulons.csv',O/'protocol_frozen.json',O/'inputs/fixed_modules.tsv',O/'inputs/glycolysis_GO_members.tsv',B/'tables/expressed_LR_with_decoy_literature.tsv',B/'tables/whole_lung_source_expression.tsv.gz',B/'tables/DE_all_models.tsv']
+for sc in ['AllMac','AMlike']:
+ for suffix in ['counts.tsv.gz','fraction.tsv.gz','samples.tsv']:files.append(B/'inputs'/f'GSE314943__{sc}.{suffix}')
+manifest=[dict(path=str(f),bytes=f.stat().st_size,sha256=hashlib.sha256(f.read_bytes()).hexdigest()) for f in files];(O/'inputs/additional_provenance.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+py=P/'software/pyscenic_0.12.1_py310/bin/python';r=subprocess.run([str(py),'-c','import sys,json,importlib.metadata as m;print(json.dumps({"python":sys.version,"pyscenic":m.version("pyscenic"),"ctxcore":m.version("ctxcore")}))'],capture_output=True,text=True,check=True);env={'statistics_python':sys.version,'numpy':numpy.__version__,'pandas':pandas.__version__,'scipy':scipy.__version__,'SCENIC':json.loads(r.stdout)};(O/'logs/environment.json').write_text(json.dumps(env,indent=2),encoding='utf-8');print('PROVENANCE',len(manifest));print(json.dumps(env))

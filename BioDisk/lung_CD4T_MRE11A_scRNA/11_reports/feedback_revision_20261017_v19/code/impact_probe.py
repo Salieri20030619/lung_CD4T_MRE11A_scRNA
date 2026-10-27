@@ -1,0 +1,7 @@
+from pathlib import Path
+import pandas as pd,json,requests
+O=Path(r'C:\Users\31937\lung_feedback_revision_20261017_v19');B=Path(r'C:\Users\31937\lung_three_cohort_20261017_v16');V17=Path(r'C:\Users\31937\lung_dual_benchmark_20261017_v17');V18=Path(r'C:\Users\31937\lung_append_analysis_20261017_v18')
+r=pd.read_csv(B/'data/tables/candidate_complete_routes.tsv',sep='\t');other=r[r.ligand!='PROS1'];print('V16 sole genes',sorted(set(r.gene)-set(other.gene)));oldpairs=set(map(tuple,r[['gene','scope','family']].to_numpy()));newpairs=set(map(tuple,other[['gene','scope','family']].to_numpy()));print('V16 affected combos without alternative',sorted(oldpairs-newpairs))
+n=pd.read_csv(V17/'tables/network_links_no_rank_exclusion.tsv.gz',sep='\t');print('V17 sole genes',sorted(set(n.gene)-set(n.loc[n.ligand!='PROS1','gene'])));print('GSN alternatives',other[(other.gene=='GSN')&(other.scope=='ActCD4')][['family','ligand','receptor','target_rank']].drop_duplicates().head(15).to_string(index=False))
+for pmid in ['29531161','25265470','30501104','34631419']:
+ z=requests.get('https://www.ebi.ac.uk/europepmc/webservices/rest/search',params={'query':'EXT_ID:'+pmid+' AND SRC:MED','format':'json','resultType':'core'},timeout=30);z.raise_for_status();d=z.json();(O/'inputs'/('PMID_'+pmid+'.json')).write_text(json.dumps(d,ensure_ascii=False,indent=2),encoding='utf-8');v=d['resultList']['result'][0];print(pmid,v['title'],v.get('abstractText','')[:1600])

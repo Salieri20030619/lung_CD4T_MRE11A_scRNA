@@ -1,0 +1,4 @@
+from pathlib import Path
+import sys,pandas as pd
+O=Path(sys.argv[1]);r=lambda n:pd.read_csv(O/'tables'/n,sep='\t')
+a=r('STAT1_gene_associations.tsv');print(a[a.y.isin(['GSDMD','CASP1','GSDME','IRF1'])][['scope','seed','model','y','rho','P','BH']].to_string(index=False));u=r('all_nominal_upstream_alternatives.tsv');print('ADJUSTED_UPSTREAM');print(u[(u.condition_P<.05)&(u.rho>0)][['sender','scope','x','rho','P','BH','condition_rho','condition_P']].to_string(index=False));print('MECHANISTIC');print(r('mechanistic_ligand_STAT1.tsv').query("model=='Pooled'") [['sender','scope','x','rho','P','BH']].to_string(index=False));print('MAP');print(r('gene_sample_expression.tsv')[['gene','mouse_symbol']].drop_duplicates().to_string(index=False))

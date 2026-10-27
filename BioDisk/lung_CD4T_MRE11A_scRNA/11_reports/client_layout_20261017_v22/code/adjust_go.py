@@ -1,0 +1,3 @@
+from pathlib import Path
+import json
+O=Path(__file__).parent;p=O/'portrait_plots.py';s=p.read_text(encoding='utf-8');s=s.replace("xytext=(6,0),textcoords='offset points'","xytext=(12,0),textcoords='offset points'");p.write_text(s,encoding='utf-8');ns={'__file__':str(p)};exec(s[:s.index('# Atlas legend')],ns);exec(s[s.index("for id,db in [('F07'"):s.index('# TF AUCell')],ns);(O/'GO_label_spacing_QA.json').write_text(json.dumps(ns['checks'],indent=2),encoding='utf-8')

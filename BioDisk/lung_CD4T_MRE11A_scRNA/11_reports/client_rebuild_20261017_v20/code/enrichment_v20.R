@@ -1,0 +1,21 @@
+suppressPackageStartupMessages({library(org.Mm.eg.db);library(GO.db);library(AnnotationDbi);library(fgsea);library(jsonlite)})
+P <- '/mnt/BioDisk/wangmingyuan/lung_CD4T_MRE11A_scRNA';O<-file.path(P,'11_reports/client_rebuild_20261017_v20');T<-file.path(O,'tables');D<-file.path(P,'02_analysis/GSE314943/stage7_20260905_234200_aiQYL0/database')
+w<-function(x,n)write.table(as.data.frame(x),file.path(T,n),sep='\t',quote=FALSE,row.names=FALSE,na='NA',fileEncoding='UTF-8')
+a<-AnnotationDbi::select(org.Mm.eg.db,keys=keys(org.Mm.eg.db,keytype='ENTREZID'),columns=c('SYMBOL','GOALL','ONTOLOGYALL'),keytype='ENTREZID');a$gene<-toupper(a$SYMBOL);mp<-unique(a[!is.na(a$gene),c('ENTREZID','gene')]);go<-unique(a[a$ONTOLOGYALL=='BP'&!is.na(a$GOALL),c('GOALL','gene')]);names(go)<-c('pathway','gene');go<-go[complete.cases(go),]
+k<-read.delim(file.path(D,'KEGG_links.tsv'),header=FALSE);k$ENTREZID<-sub('mmu:','',k$V1,fixed=TRUE);k$pathway<-sub('path:','',k$V2,fixed=TRUE);kk<-merge(k,mp,by='ENTREZID');kk<-unique(kk[,c('pathway','gene')]);kn<-read.delim(file.path(D,'KEGG_names.tsv'),header=FALSE);names(kn)<-c('pathway','description');gn<-AnnotationDbi::select(GO.db,keys=unique(go$pathway),columns='TERM',keytype='GOID');names(gn)<-c('pathway','description')
+go$database<-'GO_BP';kk$database<-'KEGG';members<-rbind(go,kk);w(members,'enrichment_members.tsv.gz.txt');# plain TSV explicit; filename corrected below
+file.rename(file.path(T,'enrichment_members.tsv.gz.txt'),file.path(T,'enrichment_members.tsv'))
+de<-read.delim(file.path(P,'11_reports/three_cohort_four_axis_20261017_v16/tables/DE_all_models.tsv'),check.names=FALSE);ors<-list();gs<-list();inputs<-list()
+for(sc in c('ActCD4','Treg')){
+ z<-de[de$model=='joint_stratified'&de$scope==sc,];stopifnot(!anyDuplicated(z$gene),all(is.finite(z$F)));z<-z[order(-sign(z$logFC)*sqrt(z$F),z$gene),];stats<-setNames(sign(z$logFC)*sqrt(z$F),z$gene);w(data.frame(gene=names(stats),rank_stat=unname(stats),logFC=z$logFC,P=z$PValue,FDR=z$FDR),paste0('GSEA_ranks_',sc,'.tsv'))
+ for(db in c('GO_BP','KEGG')){
+  mem<-members[members$database==db,];sets<-split(mem$gene,mem$pathway);sets<-lapply(sets,unique);desc<-if(db=='GO_BP')gn else kn
+  bg<-intersect(z$gene,unique(mem$gene));sets2<-lapply(sets,intersect,y=bg);sizes<-lengths(sets2);sets2<-sets2[sizes>=10 & sizes<=500];inputs[[length(inputs)+1]]<-data.frame(scope=sc,database=db,tested_genes=nrow(z),ORA_background=length(bg),ORA_tested_sets=length(sets2),GSEA_ranked_genes=length(stats),ranking='sign(logFC)*sqrt(edgeR QL F)',seed=20261017)
+  for(dir in c('up','down')){
+   hit<-intersect(z$gene[z$PValue<.05 & if(dir=='up')z$logFC>0 else z$logFC<0],bg);N<-length(bg);n<-length(hit)
+   rr<-do.call(rbind,lapply(names(sets2),function(id){ss<-sets2[[id]];h<-intersect(ss,hit);data.frame(pathway=id,N=N,n=n,K=length(ss),k=length(h),P=phyper(length(h)-1,length(ss),N-length(ss),n,lower.tail=FALSE),hit_genes=paste(h,collapse=';'))}));rr$FDR<-p.adjust(rr$P,'BH');rr$family<-paste('ORA',sc,db,dir,sep='|');rr$scope<-sc;rr$database<-db;rr$direction<-dir;rr<-merge(rr,desc,by='pathway',all.x=TRUE);ors[[length(ors)+1]]<-rr
+  }
+  set.seed(20261017);rr<-as.data.frame(fgseaMultilevel(sets,stats,minSize=10,maxSize=500,eps=1e-8,nPermSimple=1000,nproc=1));rr$leadingEdge<-vapply(rr$leadingEdge,paste,collapse=';',FUN.VALUE=character(1));rr$family<-paste('GSEA',sc,db,sep='|');rr$scope<-sc;rr$database<-db;rr<-merge(rr,desc,by='pathway',all.x=TRUE);gs[[length(gs)+1]]<-rr;cat('DONE',sc,db,nrow(rr),'\n');flush.console()
+ }
+}
+w(do.call(rbind,ors),'ORA_all.tsv');w(do.call(rbind,gs),'GSEA_all.tsv');w(do.call(rbind,inputs),'enrichment_input_summary.tsv');writeLines(capture.output(sessionInfo()),file.path(O,'R_enrichment_session.txt'));write_json(list(status='success',model='frozen v16 joint_stratified',ORA='P<0.05 split direction; mapped tested universe; hypergeometric; 10-500 members; all eligible sets incl zero-hit in BH',GSEA='all tested ranked genes; signed sqrt QL F; fgseaMultilevel; 10-500; eps1e-8; seed20261017; separate scope/database BH'),file.path(O,'enrichment_complete.json'),pretty=TRUE,auto_unbox=TRUE)

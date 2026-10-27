@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_ROOT=/mnt/BioDisk/wangmingyuan/lung_CD4T_MRE11A_scRNA
+LOG_FILE="${PROJECT_ROOT}/logs/09_finalize_CD4_and_DEG.log"
+
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate R_4.5.2
+
+Rscript \
+  "${PROJECT_ROOT}/scripts/09_finalize_CD4_and_pseudobulk_DEG.R" \
+  > "${LOG_FILE}" 2>&1

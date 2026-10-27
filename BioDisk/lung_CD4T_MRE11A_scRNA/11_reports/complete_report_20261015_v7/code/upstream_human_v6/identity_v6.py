@@ -1,0 +1,11 @@
+from pathlib import Path
+import sys,pandas as pd,numpy as np
+O=Path(sys.argv[1]);P=O.parents[1];V=P/'11_reports/integrated_macrophage_CD4_20261015_v4';J=P/'11_reports/GSE296682_patient_localization_20261005_v1';r=lambda n:pd.read_csv(O/'tables'/n,sep='\t');a=r('patient2_localization.tsv');print(a[a.scope.isin(['Alveolar macrophage','Monocyte-like macrophage','CD4 effector T cell'])&a.gene.isin(['CXCL16','CXCR6','STAT1','GSDMD','C3','C3AR1'])][['sample','scope','gene','cells','positive_cells','pct']].to_string(index=False))
+n=np.load(O/'tables/patient2_selected_expression.npz');old=np.load(J/'results/official_fixed_expression_SERVER_ONLY.npz',allow_pickle=True);idx=pd.Index(old['cells'].astype(str)).get_indexer(n['cells']);assert (idx>=0).all();og=pd.Index(old['genes'].astype(str));ng=pd.Index(n['genes']);ov=old['values'][idx];nv=n['values'];assert np.allclose(ov[:,og.get_loc('STAT1')],nv[:,ng.get_loc('STAT1')]);m=pd.read_csv(J/'results/official_silicosis_metadata_SERVER_ONLY.tsv.gz',sep='\t',index_col=0).loc[n['cells']];T=(ov[:,og.get_indexer(['CD3D','CD3E','TRAC'])]>0).sum(axis=1)>=2;my=(ov[:,og.get_indexer(['LST1','TYROBP','FCER1G','CSF1R','LYZ'])]>0).sum(axis=1)>=2;rows=[]
+for scope in ['CD4 effector T cell','CD4 helper T cell','Regulatory T cell']:
+ for sample in sorted(m.Sample.unique()):
+  mask=(m.Cell_Subtype.eq(scope)&m.Sample.eq(sample)).to_numpy()
+  for name,gs in {'CXCR6':['CXCR6'],'STAT1_GSDMD':['STAT1','GSDMD'],'CXCR6_STAT1_GSDMD':['CXCR6','STAT1','GSDMD']}.items():
+   pos=mask&(nv[:,ng.get_indexer(gs)]>0).all(axis=1);rows.append(dict(sample=sample,scope=scope,readout=name,cells=int(mask.sum()),positive_cells=int(pos.sum()),T_supported_positive=int((pos&T).sum()),myeloid_flag_positive=int((pos&my).sum())))
+pd.DataFrame(rows).to_csv(O/'tables/patient2_CD4_identity_codetection.tsv',sep='\t',index=False)
+rec=pd.read_csv(V/'03_receiver/receptor_candidate_sample_expression.tsv.gz',sep='\t');rec[rec.gene.isin(['CXCR6','C3AR1','IL27RA','IL6ST','IL12RB1','IL12RB2'])].to_csv(O/'tables/mouse_receptor_specificity.tsv',sep='\t',index=False);print('PATIENT_IDENTITY');print(pd.DataFrame(rows).query("scope=='CD4 effector T cell'").to_string(index=False));print('MOUSE_RECEPTORS');print(rec[(rec.group=='Silica')&rec.gene.isin(['CXCR6','C3AR1'])][['scope','sample','gene','cells','pct']].to_string(index=False))

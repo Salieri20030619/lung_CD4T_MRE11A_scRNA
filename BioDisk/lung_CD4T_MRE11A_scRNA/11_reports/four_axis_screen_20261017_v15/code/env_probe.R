@@ -1,0 +1,1 @@
+cat(R.version.string,"\n"); for(p in c("edgeR","Matrix","decontX","celda")) cat(p,requireNamespace(p,quietly=TRUE),"\n");cat(.libPaths(),sep="\n")

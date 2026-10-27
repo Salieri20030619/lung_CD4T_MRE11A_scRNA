@@ -1,0 +1,2 @@
+for(p in c('DOSE','enrichplot','ggplot2','cowplot','circlize')) cat(p,requireNamespace(p,quietly=TRUE),if(requireNamespace(p,quietly=TRUE)) as.character(packageVersion(p)) else '', '\n')
+if(requireNamespace('DOSE',quietly=TRUE)) print(methods::getSlots('gseaResult'))

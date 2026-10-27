@@ -1,0 +1,8 @@
+cat(R.version.string,'\n')
+p <- installed.packages()
+print(p[grepl('Tenifold|Tensor|igraph|RSpectra|Seurat|Matrix',rownames(p)),c('Package','Version'),drop=FALSE])
+cat('INSTALL START\n')
+install.packages('scTenifoldKnk', repos='https://cloud.r-project.org', Ncpus=2)
+stopifnot(requireNamespace('scTenifoldKnk',quietly=TRUE))
+print(packageVersion('scTenifoldKnk'))
+print(args(scTenifoldKnk::scTenifoldKnk))

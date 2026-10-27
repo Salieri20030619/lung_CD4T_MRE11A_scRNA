@@ -1,0 +1,38 @@
+from pathlib import Path
+import pandas as pd,numpy as np,json,re,hashlib
+O=Path(r'C:\Users\31937\lung_three_cohort_20261017_v16');T=O/'data/tables';out=O/'final_tables';out.mkdir(exist_ok=True)
+rd=lambda n:pd.read_csv(T/n,sep='\t',low_memory=False)
+s=rd('three_axis_candidates_all_contrasts.tsv');a=rd('nominal_DE_axis_membership.tsv');de=rd('DE_all_models.tsv');routes=rd('candidate_complete_routes.tsv');q=rd('candidate_sample_expression_QC.tsv');fn=rd('function_membership_extended.tsv')
+priority={'IL1R2':('Treg','优先1','巨噬细胞IL1环境下，Treg内IL1R2是否通过ENO1限制焦亡，而不只是活化标记','诱饵受体无TIR信号域；ENO1-焦亡实验证据来自巨噬细胞，需在Treg验证','https://pmc.ncbi.nlm.nih.gov/articles/PMC12533375/'), 'DDIT4':('ActCD4','优先2','巨噬来源炎症信号是否经DDIT4连接CD4线粒体损伤与ROS-TXNIP-NLRP3反应','本队列为名义显著；上游仅为通讯预测，直接焦亡证据来自非T细胞','https://pubmed.ncbi.nlm.nih.gov/38771134/;https://pubmed.ncbi.nlm.nih.gov/39920111/'), 'SKIL':('Treg','优先3','巨噬CCL2/CXCL10环境与Treg的SKIL-p53应激凋亡程序是否存在功能连接','配体至SKIL为无符号网络预测；p53凋亡证据并非来自矽肺Treg','https://pmc.ncbi.nlm.nih.gov/articles/PMC3897278/'), 'FOXP1':('Core','优先4','矽肺CD4的FOXP1下降是否改变线粒体凋亡易感性，哪些细胞来源信号参与调控','SEMA3E/CD200在其他来源更高；Treg早期方向近零且既往凋亡结果有情境差异','https://pmc.ncbi.nlm.nih.gov/articles/PMC3741507/;https://pmc.ncbi.nlm.nih.gov/articles/PMC7534899/;https://pmc.ncbi.nlm.nih.gov/articles/PMC6534289/'), 'GSN':('ActCD4','备选','CD4胞内GSN下降是否减弱线粒体保护，并受巨噬细胞信号影响','一个对照较高；胞内/分泌型不可混同，鼠/人VDAC作用亦不同','https://doi.org/10.1016/j.mcn.2003.09.012;https://pubmed.ncbi.nlm.nih.gov/11039896/;https://pubmed.ncbi.nlm.nih.gov/29100377/')}
+known={'TNFRSF9':'2016矽肺干预及2018肺泡巨噬细胞机制已有研究；作为已知轴参照，不能仅凭矽肺上调声称创新','STAT1':'矽肺STAT1已有组学及其他细胞机制研究；本项目跨时间方向不稳，原STAT1-GSDMD链问题仍在','CD44':'矽肺SPP1/CD44和其他CD44相关纤维化研究已有报道；泛化受体新颖性有限','S100A8':'已有矽肺calprotectin干预研究，且本队列CD4来源需优先排查','GBP2':'已有GBP2促进矽肺巨噬极化/上皮转化研究','HK2':'已有矽肺糖酵解及巨噬细胞/成纤维细胞研究','ZEB2':'已有矽肺上皮转化研究，不能把已知泛病理机制当新发现','TNFRSF1A':'已有TNFR1线粒体转位与矽肺纤维化研究','CDKN1A':'p53/p21应激衰老为已有疾病研究方向','BCL2L1':'既往抗凋亡BCL2蛋白干预肺纤维化；需明确CD4和来源差异'}
+queryrows=[];paperrows=[];summ=[]
+for gene in sorted(s.gene.unique()):
+ z=s[s.gene==gene];sc=priority[gene][0] if gene in priority else None;rep=z[(z.scope==sc)&(z.model=='joint_stratified')] if sc else z[z.model=='joint_stratified'];rep=(rep if len(rep) else z).sort_values('PValue').iloc[0];r=rep.to_dict();r['all_scopes']=';'.join(sorted(z.scope.unique()));r['any_direct_receptor']=bool(z.direct_receptor.any());r['time_three_axis']=bool((z.model=='274_time').any());r['review_priority']=priority[gene][1] if gene in priority else '保留背景池/参照';r['four_axis_priority']=gene in priority;r['innovation_class']='有明确差异化验证问题' if gene in priority else '已有疾病研究，需更具体增量' if gene in known else '已检索，暂未形成优先的新机制问题';r['innovation_question']=priority[gene][2] if gene in priority else '';r['interpretation_limit']=priority[gene][3] if gene in priority else known.get(gene,'保留完整三项交集；不以文献未检出直接判为创新通过');r['manual_primary_sources']=priority[gene][4] if gene in priority else ''
+ for kind in ['disease','mechanism','CD4_death']:
+  j=json.loads((O/'literature_success'/f'{gene}__{kind}.json').read_text(encoding='utf-8'));assert j['status']=='success';r['search_'+kind+'_hits']=j['hitCount'];queryrows.append({k:j[k] for k in ['gene','kind','query','searched_at','endpoint','hitCount','status']})
+  for paper in j['results']:
+   paperrows.append(dict(gene=gene,kind=kind,id=paper.get('id'),source=paper.get('source'),title=re.sub('<[^>]+>','',paper.get('title','')),year=paper.get('pubYear'),doi=paper.get('doi'),is_preprint=paper.get('source')=='PPR',url='https://europepmc.org/article/'+paper.get('source','MED')+'/'+paper.get('id',''),abstract=re.sub('<[^>]+>',' ',paper.get('abstractText',''))))
+ rt=routes[(routes.gene==gene)&(routes.family==rep.family)];r['top200_route_retained']=bool((rt.route=='direct_receptor').any() or (rt.target_rank<=200).any())
+ rr=q[(q.gene==gene)&q.scope.eq(rep.scope)&q.dataset.eq('GSE314943')]
+ if len(rr):
+  r['314_positive_cells']=int(rr.positive_cells.sum());r['314_multiUMI_cells']=int(rr.multiUMI_cells.sum());r['314_positive_Tmarker_fraction_weighted']=float((rr.positive_Tmarker_fraction.fillna(0)*rr.positive_cells).sum()/rr.positive_cells.sum());r['314_BG1_mean_difference']=float(rr.loc[rr.group=='Silica','BG1_CP10k'].mean()-rr.loc[rr.group=='Saline','BG1_CP10k'].mean());r['314_raw_CP10k_mean_difference']=float(rr.loc[rr.group=='Silica','CP10k'].mean()-rr.loc[rr.group=='Saline','CP10k'].mean())
+ summ.append(r)
+summary=pd.DataFrame(summ);summary.to_csv(out/'四轴候选总表_55基因.tsv',sep='\t',index=False);pr=summary[summary.four_axis_priority].copy();pr['rank']=pr.gene.map({g:i for i,g in enumerate(priority)});pr=pr.sort_values('rank');pr.to_csv(out/'优先验证候选_5基因.tsv',sep='\t',index=False)
+pd.DataFrame(queryrows).to_csv(out/'创新性检索记录_165项.tsv',sep='\t',index=False);pd.DataFrame(paperrows).to_csv(out/'创新性文献命中与摘要.tsv',sep='\t',index=False)
+h=pd.read_csv(O/'data/inputs/historical_candidates_extracted.tsv',sep='\t');ng=h.groupby('file').gene.nunique();hist=sorted(set(h.loc[h.file.isin(ng[ng<100].index),'gene'])|{'DUSP5','GSDMD','CXCR6','MRE11'});hr=[]
+for g in hist:
+ z=a[a.gene==g];zz=s[s.gene==g];fg=fn[fn.gene==g];deok=len(z)>0;fok=len(fg)>0;macok=bool(z.mac_axis.any()) if len(z) else False;three=len(zz)>0
+ reason='恢复进入三项交集，按创新性分层保留' if three else '本轮未达预设名义差异门槛或不可评估' if not deok else '尚缺本轮定义的内源性凋亡/焦亡直接功能证据；不等同于无任何生物学作用' if not fok else '同一接收状态下未获得本轮预设巨噬通讯入口'
+ if g=='IKZF2':reason+='；Treg稳态/存活关联不直接替代线粒体凋亡执行证据'
+ if g=='GSDMD':reason+='；原有低UMI和背景来源风险未被本次交集消除'
+ if g=='IL10':reason+='；作为发送/反馈细胞因子不自动成为巨噬作用的接收端目标'
+ hr.append(dict(gene=g,DE_axis=deok,function_axis=fok,mac_axis_in_nominal_DE_scope=macok,three_axis=three,nominal_scopes=';'.join(sorted(z.scope.unique())),retained_scopes=';'.join(sorted(zz.scope.unique())),priority=priority[g][1] if g in priority else '保留/参照' if three else '未入交集',reason=reason))
+pd.DataFrame(hr).to_csv(out/'历史候选逐项回溯.tsv',sep='\t',index=False)
+# Preserve all original fields and contrast families. This is a literature-priority layer, not a new statistical p-value.
+s.merge(summary[['gene','innovation_class','review_priority','four_axis_priority']],on='gene').to_csv(out/'全部155项候选对比.tsv',sep='\t',index=False)
+checks=[]
+for x in s.itertuples():
+ assert x.PValue<.05 and x.gene in set(fn.gene)
+ rt=routes[(routes.gene==x.gene)&(routes.family==x.family)&(routes.scope==x.scope)];assert len(rt)>0;assert ((rt.route=='direct_receptor')|(rt.target_rank<=250)).all();checks.append(dict(gene=x.gene,family=x.family,route_rows=len(rt),status='PASS'))
+pd.DataFrame(checks).to_csv(out/'交集逐项复核.tsv',sep='\t',index=False)
+meta={'three_axis_genes':55,'three_axis_comparisons':len(s),'gene_scope_pairs':len(s[['gene','scope']].drop_duplicates()),'curated_only_genes':int(s.loc[~s.function_only_literature,'gene'].nunique()),'literature_extension_genes':int(s.loc[s.function_only_literature,'gene'].nunique()),'priority_genes':pr.gene.tolist(),'history_genes':len(hist),'history_restored':int(sum(r['three_axis'] for r in hr)),'novelty_queries':len(queryrows),'all_queries_success':True,'novelty_note':'5 genes are transparent scientific prioritization, not a statistically thresholded novelty set or proof of first discovery','excluded_evidence':'Retracted FOXP1 hypoxia/reoxygenation article not used; preprints labelled and not treated as definitive primary evidence','source_metadata':'GSE274372 macrophage annotations present in 11 of 12 samples; communication denominator uses min10 eligible samples; DE uses all12 TLike samples'};(out/'summary.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(meta,ensure_ascii=False,indent=2))

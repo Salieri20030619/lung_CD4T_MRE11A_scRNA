@@ -1,0 +1,10 @@
+args<-commandArgs(TRUE);O<-args[1];P<-dirname(dirname(O));C<-file.path(P,'00_raw/nichenet_v2_mouse')
+canon<-function(x){x<-toupper(trimws(x));a<-c(MRE11A='MRE11',ATP5A1='ATP5F1A',ATP5B='ATP5F1B',ATP5C1='ATP5F1C',ATP5G1='ATP5MC1',ATP5O='ATP5PO',PARK2='PRKN');j<-x%in%names(a);x[j]<-a[x[j]];x}
+lr<-as.data.frame(readRDS(file.path(C,'lr_network_mouse_21122021.rds')));lr<-unique(data.frame(ligand=canon(lr$from),receptor=canon(lr$to)));write.table(lr,file.path(O,'inputs/LR_prior.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+lt<-readRDS(file.path(C,'ligand_target_matrix_nsga2r_final_mouse.rds'));stopifnot(!anyDuplicated(canon(rownames(lt))),!anyDuplicated(canon(colnames(lt))))
+rownames(lt)<-canon(rownames(lt));colnames(lt)<-canon(colnames(lt))
+write.table(data.frame(gene=rownames(lt)),file.path(O,'inputs/prior_target_universe.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+write.table(data.frame(gene=colnames(lt)),file.path(O,'inputs/prior_ligand_universe.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+genes<-c('IKZF2','STAT1','IL1R2','PENK','TNFRSF9','LAG3','TTC39C','FOXP1','AHNAK','MDFIC','ST6GALNAC3');rows<-lapply(intersect(genes,rownames(lt)),function(g)data.frame(target=g,ligand=colnames(lt),weight=as.numeric(lt[g,])))
+write.table(do.call(rbind,rows),file.path(O,'inputs/ligand_candidate_prior_weights.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+writeLines(capture.output(sessionInfo()),file.path(O,'provenance/prior_R_session.txt'));cat('PRIOR_EXPORT_PASS LR=',nrow(lr),'targets=',nrow(lt),'ligands=',ncol(lt),'\n')

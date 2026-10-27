@@ -1,0 +1,5 @@
+from pathlib import Path
+import sys,pandas as pd
+O=Path(sys.argv[1]);a=pd.read_csv(O/'02_sender/ligand_activity_all_states.tsv',sep='\t');print('TOP3');print(a[a['rank']<=3][['scope','direction','test_ligand','rank','aupr_corrected']].to_string(index=False));print('OLD_LIGANDS');print(a[(a.test_ligand.isin(['IL15','IL18','TNF']))&(a.direction=='Up')][['scope','test_ligand','rank','aupr_corrected']].to_string(index=False))
+a=pd.read_csv(O/'03_receiver/candidate_RNA_program_associations.tsv',sep='\t');print('RNA_PRIMARY_HITS');print(a[(a.model=='Pooled')&(a.P<.05)][['scope','x','y','rho','P','BH']].to_string(index=False))
+a=pd.read_csv(O/'03_receiver/IKZF2_STAT1_primary_and_sensitivity.tsv',sep='\t');print('SEED_SENS');print(a[a.P<.05][['scope','x','y','rho','P','condition_rho','condition_P','rho_seed29','P_seed29','rho_seed43','P_seed43']].to_string(index=False))

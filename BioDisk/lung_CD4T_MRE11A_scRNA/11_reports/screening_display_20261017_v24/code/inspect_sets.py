@@ -1,0 +1,4 @@
+from pathlib import Path
+import pandas as pd
+H=Path(__file__).parent.parent;S=H/'lung_dual_benchmark_20261017_v17';W=H/'lung_feedback_revision_20261017_v19';B=H/'lung_three_cohort_20261017_v16'
+y=pd.read_csv(W/'tables/R05_current_all90.tsv',sep='\t');print(y[y.gene.isin(['IL1R2','SKIL','TTC39C','AHNAK','DDIT4','FOXP1','GSN','MDFIC','ST6GALNAC3'])][['gene','A_status_current','A_notes','current_focus_position']].to_string(index=False));x=pd.read_csv(S/'assessment/逐状态双基准评估.tsv',sep='\t');print('STATE_FIELDS',list(x.columns));print('LITERATURE',pd.read_csv(B/'final_tables/历史候选逐项回溯.tsv',sep='\t').shape)

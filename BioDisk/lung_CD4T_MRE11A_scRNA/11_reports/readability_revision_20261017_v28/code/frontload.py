@@ -1,0 +1,2 @@
+from pathlib import Path
+O=Path(r'C:\Users\31937\lung_readability_revision_20261017_v28');s=(O/'report.py').read_text(encoding='utf-8');a=s.index("page();p('三候选为何推荐｜");b=s.index("page();p('三候选证据连接｜",a);block=s[a:b];s=s[:a]+s[b:];pos=s.index("page();p('研究设计与数据范围'");s=s[:pos]+block+s[pos:];s=s.replace('三个候选的具体信号连接、调整模型和外部方向见随后两页。','三个候选的具体信号连接、调整模型和外部方向见后文综合证据章节。');s=s.replace('Naive比例下降、ActCD4及Treg比例上升，组成检验','初始样CD4（Naive）比例下降、活化样CD4（ActCD4）及调节性T细胞（Treg）比例上升，组成检验');(O/'report.py').write_text(s,encoding='utf-8')

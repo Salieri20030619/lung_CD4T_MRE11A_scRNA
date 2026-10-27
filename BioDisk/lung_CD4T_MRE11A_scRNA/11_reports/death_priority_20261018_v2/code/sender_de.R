@@ -1,0 +1,9 @@
+suppressPackageStartupMessages(library(edgeR))
+P<-'/mnt/BioDisk/wangmingyuan/lung_CD4T_MRE11A_scRNA';O<-file.path(P,'11_reports/death_priority_20261018_v2');B<-file.path(P,'11_reports/three_cohort_four_axis_20261017_v16')
+rd<-function(base,ds){stem<-paste0(ds,'__AllMac');list(c=as.matrix(read.delim(gzfile(file.path(base,'inputs',paste0(stem,'.counts.tsv.gz'))),row.names=1,check.names=FALSE)),m=read.delim(file.path(base,'inputs',paste0(stem,'.samples.tsv'))))}
+a<-rd(B,'GSE314943');b<-rd(O,'GSE183682');g<-intersect(rownames(a$c),rownames(b$c));counts<-cbind(a$c[g,,drop=FALSE],b$c[g,,drop=FALSE]);m<-rbind(a$m,b$m);stopifnot(identical(colnames(counts),m$sample))
+m$condition<-factor(m$group,levels=c('Saline','Silica'));m$stratum<-factor(paste(m$dataset,m$day));design<-model.matrix(~stratum+condition,m)
+y<-DGEList(counts,lib.size=m$library);keep<-filterByExpr(y,design=design);y<-y[keep,,keep.lib.sizes=TRUE];y<-calcNormFactors(y);y<-estimateDisp(y,design,robust=TRUE);f<-glmQLFit(y,design,robust=TRUE);q<-glmQLFTest(f,coef=which(colnames(design)=='conditionSilica'));d<-topTags(q,n=Inf,sort.by='none')$table;d$gene<-rownames(d);d$family<-'joint_sender_AllMac_disease'
+wr<-function(x,n)write.table(as.data.frame(x),file.path(O,'tables',n),sep='\t',quote=FALSE,row.names=FALSE,na='NA',fileEncoding='UTF-8')
+wr(d,'joint_sender_DE_all.tsv');wr(data.frame(m,design,check.names=FALSE),'joint_sender_design.tsv');saveRDS(list(y=y,fit=f,design=design,meta=m),file.path(O,'objects/joint_sender_fit.rds'))
+writeLines('success',file.path(O,'logs/sender_DE_complete.txt'));cat('SENDER_DE',nrow(d),'\n')

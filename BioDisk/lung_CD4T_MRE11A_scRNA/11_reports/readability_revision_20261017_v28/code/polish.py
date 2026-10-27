@@ -1,0 +1,3 @@
+from pathlib import Path
+import fitz,json
+O=Path(r'C:\Users\31937\lung_readability_revision_20261017_v28');d=fitz.open(json.loads((O/'report_delivery.json').read_text(encoding='utf-8'))['pdf']);print(d[29].get_text());s=(O/'report.py').read_text(encoding='utf-8');s=s.replace('附录D｜','TEMPAPP｜').replace('附录C｜','附录D｜').replace('TEMPAPP｜','附录C｜').replace('见附录C及配套材料','见附录D及配套材料');s=s.replace('模型下分别评价：M1调整队列/时间层，M2进一步调整疾病状态。','模型下分别评价。M1调整队列与时间层，M2进一步调整疾病状态。');(O/'report.py').write_text(s,encoding='utf-8')

@@ -1,0 +1,24 @@
+a<-commandArgs(TRUE);out<-a[1]
+stopifnot(requireNamespace('Matrix',quietly=TRUE),requireNamespace('UCell',quietly=TRUE),requireNamespace('BiocParallel',quietly=TRUE))
+x<-as(Matrix::readMM(file.path(out,'input/counts.mtx')),'CsparseMatrix')
+g<-read.delim(file.path(out,'input/genes.tsv'));m<-read.delim(file.path(out,'input/cells.tsv'),check.names=FALSE)
+rownames(x)<-g$gene_id;colnames(x)<-m$cell
+mem<-read.delim(file.path(out,'input/module_members.tsv'))
+mem<-mem[mem$gene_id!='ENSMUSG00000031928',]
+sigs<-lapply(split(mem$gene_id,mem$module),function(z)intersect(unique(z),rownames(x)))
+coverage<-do.call(rbind,lapply(names(sigs),function(n){
+ z<-sigs[[n]];data.frame(module=n,annotated_n=length(unique(mem$gene_id[mem$module==n])),present_n=length(z),detected_n=sum(Matrix::rowSums(x[z,,drop=FALSE])>0),usable=length(z)>=3)
+}))
+write.table(coverage,file.path(out,'tables/module_coverage.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+usable<-names(sigs)[lengths(sigs)>=3];stopifnot(length(usable)>0)
+set.seed(42)
+s<-as.data.frame(UCell::ScoreSignatures_UCell(x,features=sigs[usable],maxRank=1500,BPPARAM=BiocParallel::SerialParam()))
+stopifnot(all(m$cell%in%rownames(s)));s<-s[m$cell,,drop=FALSE];names(s)<-sub('_UCell$','',names(s))
+stopifnot(all(usable%in%names(s)),all(is.finite(as.matrix(s))))
+write.table(data.frame(cell=m$cell,s),file.path(out,'tables/cell_scores.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+d<-do.call(rbind,lapply(names(sigs),function(n)do.call(rbind,lapply(sigs[[n]],function(gid){
+ do.call(rbind,lapply(unique(m$sample),function(ss){v<-as.numeric(x[gid,m$sample==ss]);data.frame(module=n,gene_id=gid,sample=ss,cells=length(v),positive=sum(v>0),UMI=sum(v))}))
+}))))
+write.table(d,file.path(out,'tables/component_detection.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+capture.output(sessionInfo(),file=file.path(out,'tables/sessionInfo.txt'))
+cat('UCELL_PASS\n')

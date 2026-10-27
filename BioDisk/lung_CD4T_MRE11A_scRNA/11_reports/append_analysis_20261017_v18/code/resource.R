@@ -1,0 +1,3 @@
+suppressPackageStartupMessages({library(org.Mm.eg.db);library(AnnotationDbi)})
+o<-'/mnt/BioDisk/wangmingyuan/lung_CD4T_MRE11A_scRNA/11_reports/append_analysis_20261017_v18'
+a<-select(org.Mm.eg.db,keys='GO:0006096',keytype='GOALL',columns=c('SYMBOL','EVIDENCEALL'));a<-a[!is.na(a$SYMBOL),];a$gene<-toupper(a$SYMBOL);a$module<-'Glycolysis';write.table(a,file.path(o,'inputs/glycolysis_GO_members.tsv'),sep='\t',row.names=FALSE,quote=FALSE,fileEncoding='UTF-8');writeLines(capture.output(sessionInfo()),file.path(o,'logs/R_resource_session.txt'));cat('GLYCOLYSIS',length(unique(a$gene)),'\n')

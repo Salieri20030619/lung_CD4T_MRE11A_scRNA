@@ -1,0 +1,20 @@
+from pathlib import Path
+import pandas as pd,json,datetime,numpy as np
+O=Path('/mnt/BioDisk/wangmingyuan/lung_CD4T_MRE11A_scRNA/11_reports/three_cohort_four_axis_20261017_v16')
+items=[('IL1R2','pyroptosis','negative_regulation','mouse_macrophage_sepsis','https://pmc.ncbi.nlm.nih.gov/articles/PMC12533375/','IL1R2 binds ENO1; genetic loss increases macrophage pyroptosis; not established in CD4'),('DUSP5','pyroptosis','regulation','human_SCLC_tumor_cells','https://pubmed.ncbi.nlm.nih.gov/40644541/','Fig4 knockdown/co-IP: A20-mediated NLRP3 stabilization depends on DUSP5; cross-species/cell-context transfer'),('STAT1','intrinsic_apoptosis','positive_regulation','mouse_NIT1_beta_cell','https://pmc.ncbi.nlm.nih.gov/articles/PMC4374929/','STAT1 knockdown changes Bcl2/Bax, cytochrome-c and caspase9 under cytokine treatment'),('TNFRSF9','intrinsic_apoptosis','negative_regulation','mouse_CD8_T_cells','https://pubmed.ncbi.nlm.nih.gov/12391199/','4-1BB signaling increases Bcl-xL/Bfl-1 and survival; regulation of intrinsic apoptosis machinery'),('GSN','intrinsic_apoptosis','negative_regulation','mouse_neuron_and_human_Jurkat','https://doi.org/10.1016/j.mcn.2003.09.012','gsn-null neurons: enhanced loss of mitochondrial potential and apoptosis; human/mouse VDAC behavior differs PMID11039896'),('FOXP1','intrinsic_apoptosis','negative_regulation','human_DLD1_colorectal_cells','https://pmc.ncbi.nlm.nih.gov/articles/PMC3741507/','FOXP1 represses BH3-only BIK and FOXO-induced apoptosis; cross-species/cell-context transfer')]
+f=pd.read_csv(O/'tables/function_membership.tsv',sep='\t');rows=[]
+for gene,mech,role,context,url,note in items:rows.append(dict(gene=gene,source='primary_literature_extension',term_id=url,term=note,evidence='direct_perturbation_in_stated_context',mechanism=mech,role=role,context=context))
+ext=pd.DataFrame(rows);ext.to_csv(O/'tables/function_literature_extensions.tsv',sep='\t',index=False);pd.concat([f,ext]).to_csv(O/'tables/function_membership_extended.tsv',sep='\t',index=False)
+# Explicit literature-supported decoy binding is kept separate from activating signaling.
+lr=pd.read_csv(O/'tables/expressed_curated_LR.tsv',sep='\t',keep_default_na=False);extra=[]
+for ds,sc in [('GSE314943',s) for s in ['Core','Naive','ActCD4','Treg']]+[('GSE274372','TLike')]:
+ def expressed(scope,gr,gene):
+  stem=ds+'__'+scope;m=pd.read_csv(O/'inputs'/f'{stem}.samples.tsv',sep='\t');ss=m.loc[(m.group==gr)&(m.cells>=10),'sample'].tolist();v=pd.read_csv(O/'inputs'/f'{stem}.fraction.tsv.gz',sep='\t',index_col=0);return bool(ss) and gene in v.index and ((v.loc[gene,ss]>=.05).mean()>=.5)
+ groups=['Saline','Silica'] if ds=='GSE314943' else ['D0','D7','D28','D56']
+ for gr in groups:
+  for lig in ['IL1A','IL1B']:
+   if expressed('AllMac',gr,lig) and expressed(sc,gr,'IL1R2'):
+    extra.append(dict(dataset=ds,scope=sc,sender='AllMac',group=gr,interaction=lig+'_IL1R2_DECOY',ligand=lig,ligand_parts=lig,receptor='IL1R2',receptor_parts='IL1R2',annotation='Literature_decoy_binding_NOT_activating_signal',evidence='https://pmc.ncbi.nlm.nih.gov/articles/PMC12533375/'))
+pd.concat([lr,pd.DataFrame(extra)]).to_csv(O/'tables/expressed_LR_with_decoy_literature.tsv',sep='\t',index=False)
+(O/'resources/literature_extension_record.json').write_text(json.dumps({'time':datetime.datetime.now(datetime.timezone.utc).isoformat(),'basis':'prespecified primary-literature extension route; separate from ontology-only results','functional_additions':items,'decoy_binding':'IL1A/IL1B-IL1R2 counted as direct extracellular binding only, not signal transduction; no re-ranking NicheNet using this extra edge','not_admitted':'IKZF2 survival association/PENK generic p53 apoptosis alone not used as proof of intrinsic mitochondrial death'},ensure_ascii=False,indent=2),encoding='utf-8')
+print('FUNCTION_EXTENDED',pd.concat([f,ext]).gene.nunique(),'DECOY',len(extra))
